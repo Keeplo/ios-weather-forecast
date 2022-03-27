@@ -57,12 +57,119 @@ private func requestWeatherData(_ location: CLLocation, completion: @escaping ()
 > global 비동기 태스크를 만들어 DispatchGroup으로 3가지 비동기 태스크를 관리해서 해결했다.
 
 </div></details>
-<details><summary>requestLocation 메서드 실패할 경우 다시 요청하기</summary><div markdown="1">
+<details><summary>MockURLSession 객체를 이용해서 URLSession 동작 UnitTest</summary><div markdown="1">
     
 ```swift
-func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-    // 재호출
+protocol URLSessionProtocol {
+    func makeCustomDataTask(with url: URL,
+                            completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void)
+    -> URLSessionDataTaskProtocol
 }
+
+extension URLSession: URLSessionProtocol {
+    func makeCustomDataTask(with url: URL,
+                            completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void)
+    -> URLSessionDataTaskProtocol {
+        return dataTask(with: url, completionHandler: completionHandler) as URLSessionDataTaskProtocol
+    }
+}
+
+protocol URLSessionDataTaskProtocol {
+    func resume()
+}
+
+extension URLSessionDataTask: URLSessionDataTaskProtocol {}
+```
+URLSession에서 사용할 동작을 Protocol을 이용해서 추상화하고
+```swift
+struct MockURLSessionDataTask: URLSessionDataTaskProtocol {
+    
+    var resumeDidCall: () -> Void = {}
+    
+    func resume() {
+        resumeDidCall()
+    }
+}
+
+struct MockURLSession: URLSessionProtocol {
+    
+    private let isSuccess: Bool
+    
+    init(isSuccess: Bool) {
+        self.isSuccess = isSuccess
+    }
+    
+    func makeCustomDataTask(with url: URL,
+                            completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void)
+    -> URLSessionDataTaskProtocol {
+        let successResponse = HTTPURLResponse(url: url,
+                                              statusCode: 200,
+                                              httpVersion: nil,
+                                              headerFields: nil)
+        let failureResponse = HTTPURLResponse(url: url,
+                                              statusCode: 400,
+                                              httpVersion: nil,
+                                              headerFields: nil)
+        
+        var mockURLSessionDataTask = MockURLSessionDataTask()
+        mockURLSessionDataTask.resumeDidCall = {
+            completionHandler(Data(), self.isSuccess ? successResponse : failureResponse, nil)
+        }
+        
+        return mockURLSessionDataTask
+    }
+}
+```
+다음과 같이 Mock 객체르 만들어서 테스트르 진행함
+```swift
+class MockURLSessionTests: XCTestCase {
+    
+    var successSut: URLSessionProtocol!
+    var failureSut: URLSessionProtocol!
+
+    override func setUpWithError() throws {
+        super.setUp()
+        successSut = MockURLSession(isSuccess: true)
+        failureSut = MockURLSession(isSuccess: false)
+    }
+
+    override func tearDownWithError() throws {
+        successSut = nil
+        failureSut = nil
+        super.tearDown()
+    }
+
+    func test_SuccessCase_dataTask메서드로_통신성공하면_statusCode가_200이상300미만이다() {
+        // given
+        let successRange = 200..<300
+        let url: URL! = URL(string: "https://yagom.com")
+        // when
+        successSut.makeCustomDataTask(with: url) { _, response, _ in
+            guard let response = response as? HTTPURLResponse else {
+                XCTFail("Response error.")
+                return
+            }
+            // then
+            XCTAssert(successRange ~= response.statusCode)
+        }.resume()
+    }
+    
+    func test_FailureCase_dataTask메서드로_통신실패하면_statusCode가_200이상300미만이아니다() {
+        // given
+        let successRange = 200..<300
+        let url: URL! = URL(string: "https://yagom.com")
+        // when
+        failureSut.makeCustomDataTask(with: url) { _, response, _ in
+            guard let response = response as? HTTPURLResponse else {
+                XCTFail("Response error.")
+                return
+            }
+            // then
+            XCTAssert(!(successRange ~= response.statusCode))
+        }.resume()
+    }
+}
+
 ```
 </div></details>
 <details><summary>APIKey를 Enum 타입에서 타입프로퍼티 초기화 고민</summary><div markdown="1">
