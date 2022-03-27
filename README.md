@@ -19,7 +19,8 @@
 ## Demo
 <details><summary>GIF</summary><div markdown="1">
     
-
+![137514536-144b51be-9dae-4f24-bdb3-6a5e3f991808](https://user-images.githubusercontent.com/24707229/160289197-7466e093-a78f-4ee2-9a14-cfcd284f05b1.gif)
+![137514516-ee34a729-3745-40a2-89e3-67f9efbac0a8](https://user-images.githubusercontent.com/24707229/160289204-0df18134-3ec0-4b01-8ad9-730bb186fccf.gif)
 </div></details>
 
 ## 고민했던 점
